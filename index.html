@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Twenty-stock US equity portfolio built with a macro regime model and ten-year cash-flow valuations, tracked live since 8 October 2026.">
+
+<title>Portfolio Investment Machine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a fund factsheet. Sticky tab rail on top; each tab is one "page": summary tiles, then chart + metric column, then the full holdings table. */
+:root{
+  --bg:#f3f5f8; --panel:#ffffff; --ink:#0f1722; --ink-2:#4a5566; --ink-3:#7a8698; --line:#dde3ec; --soft:#eaeef4;
+  --accent:#16406e; --good:#1d7a4b; --warn:#a86400;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
+  --display:"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --panel:#161d27; --ink:#eef2f7; --ink-2:#b3bdcb; --ink-3:#8590a1; --line:#2a3442; --soft:#1d2632;
+  --accent:#8db8ea; --good:#4cc38a; --warn:#e3a43a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#2f9a2f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --panel:#161d27; --ink:#eef2f7; --ink-2:#b3bdcb; --ink-3:#8590a1; --line:#2a3442; --soft:#1d2632;
+  --accent:#8db8ea; --good:#4cc38a; --warn:#e3a43a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#2f9a2f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:0 48px}
+header.top{padding-block:28px 18px;display:grid;gap:6px}
+.eyebrow{font:600 11.5px/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+h1{font:800 clamp(28px,4.4vw,44px)/1.05 var(--display);font-stretch:85%;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.sub{color:var(--ink-2);max-width:70ch;margin:0}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:12px 14px;color:var(--ink-2);text-decoration:none;font-weight:600;font-size:14px;border-bottom:3px solid transparent;margin-bottom:-1px}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+section.page{display:grid;gap:22px;padding-top:24px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.kpi{background:var(--panel);padding:16px 18px;display:grid;gap:4px;min-width:0}
+.kpi .lab{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.kpi .val{font:600 28px/1.1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .cmp{font-size:12.5px;color:var(--ink-3)}
+.kpi .cmp b{color:var(--ink-2);font-weight:600}
+.grid2{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:14px;min-width:0;align-content:start}
+.panel h2{font:700 17px/1.2 var(--display);font-stretch:95%;margin:0}
+.panel .hint{font-size:13px;color:var(--ink-3);margin:-8px 0 0}
+.donutbox{display:grid;grid-template-columns:minmax(180px,250px) minmax(0,1fr);gap:20px;align-items:center}
+@media (max-width:520px){.donutbox{grid-template-columns:minmax(0,1fr);justify-items:center}}
+svg.donut{width:100%;max-width:250px;height:auto;display:block}
+svg.donut path{cursor:default;transition:opacity .15s}
+svg.donut .ctr1{font:600 30px var(--mono);fill:var(--ink)}
+svg.donut .ctr2{font:600 11px var(--mono);fill:var(--ink-3);letter-spacing:.08em}
+.legend{display:grid;gap:2px;width:100%;min-width:0}
+.lg{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 6px;border-radius:6px}
+.lg:hover,.lg.hl{background:var(--soft)}
+.lg .nm{font-weight:600;font-size:14px;line-height:1.25}
+.lg .ds{font-size:12.5px;color:var(--ink-3);line-height:1.3}
+.lg .pc{font:600 14px var(--mono);font-variant-numeric:tabular-nums}
+.sw{width:12px;height:12px;border-radius:3px}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) 52px;gap:10px;align-items:center;font-size:13.5px}
+.bar .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .track{height:14px;background:var(--soft);border-radius:2px;position:relative}
+.bar .fill{position:absolute;inset:0 auto 0 0;border-radius:0 4px 4px 0}
+.bar .pc{font:600 13px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;font:600 11px/1 var(--mono);letter-spacing:.04em;padding:4px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+.chip.High{border-color:color-mix(in oklab,var(--good) 55%,var(--line));color:var(--good)}
+.chip.Mid{border-color:var(--line);color:var(--ink-2)}
+.chip.Low{border-color:color-mix(in oklab,var(--warn) 55%,var(--line));color:var(--warn)}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.metric{background:var(--panel);padding:13px 14px;display:grid;gap:2px;min-width:0}
+.metric .lab{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.metric .val{font:600 22px/1.15 var(--mono);font-variant-numeric:tabular-nums}
+.metric .cmp{font-size:12px;color:var(--ink-3)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:860px}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font:600 11px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);background:var(--soft);position:sticky;top:0}
+td{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+td.name{font-family:var(--body);font-size:14px}
+td.name b{font-weight:700}
+td.name span{display:block;color:var(--ink-3);font-size:12px}
+tr:last-child td{border-bottom:0}
+tr.tot td{background:var(--soft);font-weight:600}
+.pos{color:var(--good)} .neg{color:var(--warn)}
+.note{font-size:12.5px;color:var(--ink-3);max-width:90ch;margin:0}
+.sectorhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end}
+.sectorhead h2{font:800 clamp(24px,3.4vw,34px)/1.05 var(--display);font-stretch:85%;margin:0}
+.sectorhead p{margin:6px 0 0;color:var(--ink-2);max-width:72ch}
+.big{font:600 40px/1 var(--mono);text-align:right}
+.big small{display:block;font:600 11px var(--mono);letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase;margin-top:6px}
+.tip{position:fixed;pointer-events:none;z-index:20;background:var(--ink);color:var(--bg);font-size:12.5px;line-height:1.35;padding:8px 10px;border-radius:6px;max-width:240px;opacity:0;transition:opacity .1s}
+.tip b{display:block;font-size:13px}
+footer{margin-top:28px;display:grid;gap:6px}
+.livechart{width:100%;height:auto;display:block}
+.livechart text{font:500 11px var(--mono);fill:var(--ink-3)}
+.livechart .grid{stroke:var(--line);stroke-width:1}
+.livechart .zero{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 3}
+.livechart .lm{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
+.livechart .ls{fill:none;stroke:var(--ink-3);stroke-width:2;stroke-linejoin:round}
+.livechart .gap{fill:var(--good);opacity:.12}
+.livechart .buy{fill:var(--panel);stroke:var(--accent);stroke-width:2}
+.livechart .cash{fill:var(--soft);stroke:none}
+.livechart .cashl{fill:none;stroke:var(--ink-2);stroke-width:1.5}
+.keyrow{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--ink-2)}
+.keyrow span{display:inline-flex;align-items:center;gap:7px}
+.keyrow i{display:inline-block;width:18px;height:3px;border-radius:2px}
+.warnlist{display:grid;gap:10px}
+.warnitem{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:12px 14px;border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:6px}
+.warnitem b{font-weight:700}
+.warnitem p{margin:2px 0 0;font-size:13.5px;color:var(--ink-2)}
+.warnitem .chip{margin-top:2px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Personal project · US equities · prices 5–7 Oct 2026</div>
+  <h1>Portfolio Investment Machine</h1>
+  <p class="sub">Twenty stocks in the five sectors chosen by the macro regime model, each valued with a ten-year cash-flow model. Current regime: inflation rising.</p>
+</header>
+<nav class="tabs" id="tabs" aria-label="Portfolio pages"></nav>
+<main id="main"></main>
+<footer>
+  <p class="note"><b>How the figures are built.</b> Weights follow the tier rule inside each sector's weight (High = 3 units, Mid = 2, Low = 1) and are provisional. Portfolio and sector multiples are weight-averaged as harmonic means (the average of earnings yields), excluding stocks where a multiple is not meaningful: Insmed (loss-making), Neurocrine's EV/EBITDA (not retrieved) and Centrus' EV/EBITDA (230 times, on near-zero profit). Expected return is each stock's base-case return per year at today's price, from Step 4, weighted.</p>
+  <p class="note"><b>Sources.</b> Multiples and market values from stockanalysis.com statistics (7 Oct 2026); Microsoft and Alphabet EV/EBITDA, price-to-sales and dividend yield from tickflow.io (8 Oct 2026); Veeva's multiples calculated from its Q2 FY27 results. S&P 500 forward P/E of about 21.5 from Zacks (June 2026). Values, returns and tiers from the project's Steps 4 to 8. This is a student project, not investment advice.</p>
+</footer>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+<script>
+const SECTORS=[
+ {id:"tech",name:"Technology",w:24,color:1,regime:10.9,note:"Five stocks across AI infrastructure and platforms. Three are tied to data-centre spending."},
+ {id:"health",name:"Health Care",w:31,color:2,regime:15.4,note:"The largest weight: the best-performing sector when inflation is rising (+15.4% a year, t-statistic 2.23 against the S&P 500)."},
+ {id:"ind",name:"Industrials",w:21,color:3,regime:6.6,note:"Power and data-centre equipment, industrial batteries, and an aviation aftermarket name that diversifies away from electricity."},
+ {id:"util",name:"Utilities",w:14,color:4,regime:10.6,note:"Two power producers with nuclear and gas generation, and one regulated electric utility."},
+ {id:"energy",name:"Energy",w:10,color:5,regime:12.9,note:"Cut from 17% to 10% because the sector's rise was driven by the war and oil prices. Both holdings avoid direct oil-price exposure."}
+];
+// fpe=forward P/E, pe=trailing P/E, ev=EV/EBITDA, ps=price/sales, dy=dividend yield %, mc=market cap $bn
+const STOCKS=[
+ {t:"TSM",n:"TSMC",s:"tech",sub:"Semiconductor foundry",tier:"High",price:482.30,base:263,ret:7.7,fpe:20.3,pe:29.8,ev:20.1,ps:14.9,dy:0.68,mc:2070,mom:null},
+ {t:"AVGO",n:"Broadcom",s:"tech",sub:"Custom AI chips and software",tier:"High",price:375.81,base:284,ret:10.1,fpe:21.7,pe:48.1,ev:35.1,ps:20.2,dy:0.69,mc:1800,mom:-0.74},
+ {t:"GOOGL",n:"Alphabet",s:"tech",sub:"Internet platforms and cloud",tier:"Mid",price:347.68,base:200,ret:7.7,fpe:25.9,pe:17.4,ev:19.2,ps:9.8,dy:0.25,mc:4160,mom:0.86},
+ {t:"MSFT",n:"Microsoft",s:"tech",sub:"Software and cloud",tier:"Low",price:530,base:347,ret:8.2,fpe:26.8,pe:29.5,ev:19.3,ps:12.1,dy:0.70,mc:3840,mom:-0.37},
+ {t:"CRDO",n:"Credo Technology",s:"tech",sub:"AI data-centre connectivity",tier:"Low",price:220,base:99,ret:9.0,fpe:30.2,pe:77.7,ev:74.8,ps:26.0,dy:0,mc:41.4,mom:null},
+ {t:"LLY",n:"Eli Lilly",s:"health",sub:"Obesity and diabetes medicines",tier:"High",price:1189,base:762,ret:6.2,bull:8.5,fpe:28.7,pe:39.9,ev:26.5,ps:13.3,dy:0.58,mc:1060,mom:0.27},
+ {t:"ALNY",n:"Alnylam",s:"health",sub:"Gene-silencing medicines",tier:"High",price:224.41,base:402,ret:11.0,fpe:28.7,pe:39.9,ev:28.2,ps:6.3,dy:0,mc:30.0,mom:null},
+ {t:"INSM",n:"Insmed",s:"health",sub:"Respiratory specialty medicines",tier:"Mid",price:101.74,base:111,ret:9.8,fpe:null,pe:null,ev:null,ps:19.5,dy:0,mc:22.2,mom:null},
+ {t:"MDT",n:"Medtronic",s:"health",sub:"Medical devices",tier:"Mid",price:85.51,base:106,ret:9.6,fpe:14.2,pe:21.1,ev:12.4,ps:2.9,dy:3.37,mc:109.4,mom:-0.90},
+ {t:"VEEV",n:"Veeva Systems",s:"health",sub:"Life-sciences software",tier:"Mid",price:282.50,base:227,ret:8.0,fpe:30.7,pe:46.1,ev:37.0,ps:13.5,dy:0,mc:46.6,mom:-0.13},
+ {t:"NBIX",n:"Neurocrine",s:"health",sub:"Neurology and rare-hormone medicines",tier:"Low",price:143.47,base:227,ret:11.6,fpe:12.8,pe:21.0,ev:null,ps:4.3,dy:0,mc:14.6,mom:null},
+ {t:"GEV",n:"GE Vernova",s:"ind",sub:"Power and grid equipment",tier:"High",price:997,base:436,ret:6.0,bull:8.0,fpe:47.7,pe:28.5,ev:65.3,ps:6.4,dy:0.20,mc:265.6,mom:0.78},
+ {t:"VRT",n:"Vertiv",s:"ind",sub:"Data-centre power and cooling",tier:"High",price:246,base:108,ret:7.6,fpe:31.2,pe:55.8,ev:35.5,ps:8.3,dy:0.10,mc:94.9,mom:0.84},
+ {t:"ENS",n:"EnerSys",s:"ind",sub:"Industrial batteries",tier:"High",price:182,base:144,ret:9.0,fpe:14.7,pe:20.6,ev:12.2,ps:1.8,dy:0.60,mc:6.9,mom:null},
+ {t:"FTAI",n:"FTAI Aviation",s:"ind",sub:"Aerospace aftermarket",tier:"Low",price:175,base:116,ret:9.0,fpe:19.7,pe:38.2,ev:21.2,ps:5.8,dy:1.14,mc:18.0,mom:null},
+ {t:"CEG",n:"Constellation Energy",s:"util",sub:"Nuclear power producer",tier:"High",price:300,base:158,ret:7.8,fpe:24.2,pe:29.0,ev:16.4,ps:3.4,dy:0.57,mc:106.2,mom:-0.19},
+ {t:"VST",n:"Vistra",s:"util",sub:"Gas and nuclear power producer",tier:"Mid",price:167,base:61,ret:7.3,fpe:16.3,pe:28.4,ev:11.4,ps:2.9,dy:0.55,mc:56.0,mom:-0.44},
+ {t:"ETR",n:"Entergy",s:"util",sub:"Regulated electric utility",tier:"Mid",price:103,base:80,ret:7.1,fpe:22.0,pe:26.4,ev:14.5,ps:3.7,dy:2.49,mc:49.1,mom:1.43},
+ {t:"BKR",n:"Baker Hughes",s:"energy",sub:"Gas and LNG equipment",tier:"High",price:55,base:43,ret:8.6,fpe:21.2,pe:18.4,ev:11.2,ps:2.0,dy:1.66,mc:55.0,mom:0.17},
+ {t:"LEU",n:"Centrus Energy",s:"energy",sub:"Uranium enrichment",tier:"Low",price:147,base:113,ret:10.1,fpe:60.2,pe:67.7,ev:null,ps:6.4,dy:0,mc:3.0,mom:null}
+];
+
+const UNITS={High:3,Mid:2,Low:1};
+SECTORS.forEach(s=>{const st=STOCKS.filter(x=>x.s===s.id);const u=st.reduce((a,x)=>a+UNITS[x.tier],0);st.forEach(x=>x.w=s.w*UNITS[x.tier]/u);s.stocks=st.sort((a,b)=>b.w-a.w||b.ret-a.ret)});
+const BYW=[...STOCKS].sort((a,b)=>b.w-a.w);
+const col=i=>`var(--s${i})`;
+const f1=v=>v==null?"n/m":v.toFixed(1);
+const pct=(v,d=1)=>v==null?"n/m":v.toFixed(d)+"%";
+const money=v=>"$"+(v>=1000?v.toLocaleString("en-US",{maximumFractionDigits:0}):v.toFixed(v<100?2:0));
+const mcap=v=>v>=1000?"$"+(v/1000).toFixed(2)+"tn":"$"+(v>=100?v.toFixed(0):v.toFixed(1))+"bn";
+function hmean(list,k,cap){let cw=0,acc=0;list.forEach(x=>{const v=x[k];if(v!=null&&v>0&&(!cap||v<cap)){cw+=x.w;acc+=x.w/v}});return acc?cw/acc:null}
+function wmean(list,k){const W=list.reduce((a,x)=>a+x.w,0);return list.reduce((a,x)=>a+x.w*(x[k]||0),0)/W}
+function agg(list){return{fpe:hmean(list,"fpe"),pe:hmean(list,"pe"),ev:hmean(list,"ev",100),ps:hmean(list,"ps"),dy:wmean(list,"dy"),ret:wmean(list,"ret"),up:wmean(list.map(x=>({w:x.w,u:(x.base/x.price-1)*100})),"u")}}
+const P=agg(STOCKS);
+const tip=document.getElementById("tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.opacity=1;const x=Math.min(e.clientX+14,innerWidth-250);tip.style.left=x+"px";tip.style.top=(e.clientY+14)+"px"}
+function hideTip(){tip.style.opacity=0}
+function donut(items,center,sub){
+  const R=110,r=70,C=125,gap=0.012;let a=-Math.PI/2;const tot=items.reduce((s,i)=>s+i.v,0);
+  let paths="";items.forEach((it,i)=>{const ang=it.v/tot*2*Math.PI;const a0=a+gap,a1=a+ang-gap;a+=ang;
+    const p=(rad,t)=>[C+rad*Math.cos(t),C+rad*Math.sin(t)].map(n=>n.toFixed(2)).join(" ");const L=(a1-a0)>Math.PI?1:0;
+    paths+=`<path data-i="${i}" fill="${it.c}" d="M${p(R,a0)} A${R} ${R} 0 ${L} 1 ${p(R,a1)} L${p(r,a1)} A${r} ${r} 0 ${L} 0 ${p(r,a0)} Z"></path>`});
+  return `<svg class="donut" viewBox="0 0 250 250" role="img" aria-label="${sub}">${paths}<text class="ctr1" x="125" y="128" text-anchor="middle">${center}</text><text class="ctr2" x="125" y="150" text-anchor="middle">${sub.toUpperCase()}</text></svg>`}
+function wireDonut(root,items){
+  const paths=root.querySelectorAll("svg.donut path"),rows=root.querySelectorAll(".lg");
+  const hl=i=>{paths.forEach((p,j)=>p.style.opacity=(i==null||+p.dataset.i===i)?1:.3);rows.forEach((r,j)=>r.classList.toggle("hl",j===i))};
+  paths.forEach(p=>{const i=+p.dataset.i;p.addEventListener("mousemove",e=>{hl(i);showTip(e,items[i].tip)});p.addEventListener("mouseleave",()=>{hl(null);hideTip()})});
+  rows.forEach((r,i)=>{r.addEventListener("mouseenter",()=>hl(i));r.addEventListener("mouseleave",()=>hl(null))});
+}
+function kpis(list){return `<div class="kpis">
+ <div class="kpi"><span class="lab">Expected return, base case</span><span class="val">${pct(list.ret)}</span><span class="cmp">a year at today's prices · <b>Treasury 5.3%</b></span></div>
+ <div class="kpi"><span class="lab">Forward P/E</span><span class="val">${f1(list.fpe)}</span><span class="cmp">next year's earnings · <b>S&P 500 ≈21.5</b></span></div>
+ <div class="kpi"><span class="lab">EV / EBITDA</span><span class="val">${f1(list.ev)}</span><span class="cmp">business value to cash profit</span></div>
+ <div class="kpi"><span class="lab">Price / sales</span><span class="val">${f1(list.ps)}</span><span class="cmp">market value to revenue</span></div>
+ <div class="kpi"><span class="lab">Dividend yield</span><span class="val">${pct(list.dy,2)}</span><span class="cmp">weighted</span></div>
+</div>`}
+function holdingsTable(list,showSector){
+  const rows=list.map(x=>{const up=(x.base/x.price-1)*100;const sec=SECTORS.find(s=>s.id===x.s);
+   return `<tr><td class="name l"><b>${x.n}</b><span>${x.t} · ${x.sub}</span></td>${showSector?`<td class="l">${sec.name}</td>`:""}<td class="l"><span class="chip ${x.tier}">${x.tier}</span></td><td>${x.w.toFixed(1)}%</td><td>${money(x.price)}</td><td>$${x.base.toLocaleString("en-US")}</td><td class="${up>=0?"pos":"neg"}">${up>=0?"+":""}${up.toFixed(0)}%</td><td>${x.ret.toFixed(1)}%${x.bull?`<span style="display:block;font-size:11px;color:var(--ink-3)">bull ${x.bull}%</span>`:""}</td><td>${f1(x.fpe)}</td><td>${f1(x.pe)}</td><td>${x.ev!=null&&x.ev<100?f1(x.ev):"n/m"}</td><td>${f1(x.ps)}</td><td>${x.dy?x.dy.toFixed(2)+"%":"–"}</td><td>${mcap(x.mc)}</td><td>${x.mom==null?"–":x.mom.toFixed(2)}</td></tr>`}).join("");
+  const a=agg(list);
+  return `<div class="tablewrap"><table><thead><tr><th>Stock</th>${showSector?'<th class="l">Sector</th>':""}<th class="l">Tier</th><th>Weight</th><th>Price</th><th>Base value</th><th>Value vs price</th><th>Base return</th><th>Fwd P/E</th><th>P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Div. yield</th><th>Mkt value</th><th>Momentum</th></tr></thead><tbody>${rows}
+  <tr class="tot"><td class="name l"><b>${showSector?"Portfolio":"Sector"}</b></td>${showSector?"<td></td>":""}<td></td><td>${list.reduce((s,x)=>s+x.w,0).toFixed(1)}%</td><td></td><td></td><td>${a.up>=0?"+":""}${a.up.toFixed(0)}%</td><td>${a.ret.toFixed(1)}%</td><td>${f1(a.fpe)}</td><td>${f1(a.pe)}</td><td>${f1(a.ev)}</td><td>${f1(a.ps)}</td><td>${a.dy.toFixed(2)}%</td><td></td><td></td></tr></tbody></table></div>`}
+function overview(){
+  const items=SECTORS.map(s=>({v:s.w,c:col(s.color),tip:`<b>${s.name} · ${s.w}%</b>${s.stocks.length} stocks · regime return ${s.regime}% a year`}));
+  const top=BYW.slice(0,10),mx=top[0].w;
+  const tiers=["High","Mid","Low"].map(t=>({t,n:STOCKS.filter(x=>x.tier===t).length,w:STOCKS.filter(x=>x.tier===t).reduce((a,x)=>a+x.w,0)}));
+  const secRows=SECTORS.map(s=>{const a=agg(s.stocks);return `<tr><td class="name l"><span class="dot" style="display:inline-block;background:${col(s.color)};margin-right:8px"></span><b style="display:inline">${s.name}</b></td><td>${s.w}%</td><td>${s.stocks.length}</td><td>${s.regime.toFixed(1)}%</td><td>${a.ret.toFixed(1)}%</td><td>${f1(a.fpe)}</td><td>${f1(a.pe)}</td><td>${f1(a.ev)}</td><td>${f1(a.ps)}</td><td>${a.dy.toFixed(2)}%</td></tr>`}).join("");
+  return `<section class="page" aria-label="Overview">
+  ${kpis(P)}
+  <div class="grid2">
+   <div class="panel"><h2>Sector allocation</h2><p class="hint">Weights set by the regime model in Step 1, after the Energy adjustment.</p>
+    <div class="donutbox">${donut(items,"20","stocks")}
+     <div class="legend">${SECTORS.map(s=>`<div class="lg"><span class="sw" style="background:${col(s.color)}"></span><span><span class="nm">${s.name}</span><br><span class="ds">${s.stocks.length} stocks · ${s.stocks.map(x=>x.t).join(", ")}</span></span><span class="pc">${s.w}%</span></div>`).join("")}</div></div></div>
+   <div class="panel"><h2>Top 10 holdings</h2><p class="hint">Share of the portfolio. Colour shows the sector.</p>
+    <div class="bars">${top.map(x=>{const s=SECTORS.find(q=>q.id===x.s);return `<div class="bar"><span class="nm" title="${x.n}">${x.n}</span><span class="track"><span class="fill" style="width:${(x.w/mx*100).toFixed(1)}%;background:${col(s.color)}"></span></span><span class="pc">${x.w.toFixed(1)}%</span></div>`}).join("")}</div>
+    <p class="note">Top 10 together: <b>${top.reduce((a,x)=>a+x.w,0).toFixed(1)}%</b> of the portfolio. Tier mix: ${tiers.map(t=>`<span class="chip ${t.t}">${t.t} ${t.n}</span>`).join(" ")} · ${STOCKS.filter(x=>x.mom==null).length} of 20 holdings sit outside the S&P 500.</p></div>
+  </div>
+  <div class="panel"><h2>Valuation by sector</h2><p class="hint">Regime return is the sector's average yearly return in past inflation-rising periods (Step 1).</p>
+   <div class="tablewrap" style="border:0"><table style="min-width:760px"><thead><tr><th>Sector</th><th>Weight</th><th>Stocks</th><th>Regime return</th><th>Base return</th><th>Fwd P/E</th><th>P/E</th><th>EV/EBITDA</th><th>P/S</th><th>Div. yield</th></tr></thead><tbody>${secRows}
+   <tr class="tot"><td class="name l"><b>Portfolio</b></td><td>100%</td><td>20</td><td></td><td>${P.ret.toFixed(1)}%</td><td>${f1(P.fpe)}</td><td>${f1(P.pe)}</td><td>${f1(P.ev)}</td><td>${f1(P.ps)}</td><td>${P.dy.toFixed(2)}%</td></tr></tbody></table></div></div>
+  <div class="panel"><h2>All holdings</h2><p class="hint">Base value and base return come from each stock's ten-year cash-flow model. Base value is discounted at each stock's own required return, so a value below the price means the base case pays less than that required return, not that the stock is expected to fall. Momentum is the Step 2 score; "–" means outside the S&P 500.</p>${holdingsTable(BYW,true)}</div>
+  </section>`}
+function sectorPage(s){
+  const st=s.stocks,a=agg(st);
+  const items=st.map((x,i)=>({v:x.w,c:col(i+1),tip:`<b>${x.n} · ${x.w.toFixed(1)}%</b>${x.sub}<br>${x.tier} tier · base return ${x.ret}%`}));
+  return `<section class="page" aria-label="${s.name}">
+  <div class="sectorhead"><div><div class="eyebrow">Sector page</div><h2>${s.name}</h2><p>${s.note}</p></div><div class="big">${s.w}%<small>of portfolio</small></div></div>
+  <div class="grid2">
+   <div class="panel"><h2>Holdings and sub-sectors</h2><p class="hint">Share of the portfolio, split by the tier rule.</p>
+    <div class="donutbox">${donut(items,st.length,"stocks")}
+     <div class="legend">${st.map((x,i)=>`<div class="lg"><span class="sw" style="background:${col(i+1)}"></span><span><span class="nm">${x.n} <span class="chip ${x.tier}">${x.tier}</span></span><br><span class="ds">${x.sub}</span></span><span class="pc">${x.w.toFixed(1)}%</span></div>`).join("")}</div></div></div>
+   <div class="panel"><h2>Value metrics</h2><p class="hint">Weighted across the sector's holdings.</p>
+    <div class="metrics">
+     <div class="metric"><span class="lab">Expected return</span><span class="val">${pct(a.ret)}</span><span class="cmp">base case, a year · portfolio ${pct(P.ret)}</span></div>
+     <div class="metric"><span class="lab">Base value vs price</span><span class="val ${a.up>=0?"pos":"neg"}">${a.up>=0?"+":""}${a.up.toFixed(0)}%</span><span class="cmp">at each stock's required return</span></div>
+     <div class="metric"><span class="lab">Forward P/E</span><span class="val">${f1(a.fpe)}</span><span class="cmp">portfolio ${f1(P.fpe)} · S&P 500 ≈21.5</span></div>
+     <div class="metric"><span class="lab">Trailing P/E</span><span class="val">${f1(a.pe)}</span><span class="cmp">portfolio ${f1(P.pe)}</span></div>
+     <div class="metric"><span class="lab">EV / EBITDA</span><span class="val">${f1(a.ev)}</span><span class="cmp">portfolio ${f1(P.ev)}</span></div>
+     <div class="metric"><span class="lab">Price / sales</span><span class="val">${f1(a.ps)}</span><span class="cmp">portfolio ${f1(P.ps)}</span></div>
+     <div class="metric"><span class="lab">Dividend yield</span><span class="val">${pct(a.dy,2)}</span><span class="cmp">portfolio ${pct(P.dy,2)}</span></div>
+     <div class="metric"><span class="lab">Regime return</span><span class="val">${pct(s.regime)}</span><span class="cmp">a year when inflation rises</span></div>
+    </div></div>
+  </div>
+  <div class="panel"><h2>${s.name} holdings</h2>${holdingsTable(st,false)}</div>
+  </section>`}
+
+const LIVE=[["2026-10-08", -0.0, 0.0, 74.3], ["2026-10-09", 0.33, 0.59, 74.0], ["2026-10-12", 0.09, 0.54, 73.5], ["2026-10-13", 0.01, 0.52, 73.5], ["2026-10-14", -0.53, -0.6, 73.2], ["2026-10-15", -0.03, -0.27, 69.7], ["2026-10-16", -0.71, -1.36, 70.2], ["2026-10-19", -0.84, -0.96, 70.3], ["2026-10-20", -0.76, -0.68, 70.2], ["2026-10-21", -0.56, -0.11, 70.1], ["2026-10-22", -1.3, -1.31, 68.4], ["2026-10-23", -1.66, -1.82, 64.9], ["2026-10-26", -1.27, -1.14, 64.6], ["2026-10-27", -0.22, -0.55, 63.9], ["2026-10-28", 0.2, -0.28, 63.7], ["2026-10-29", -0.32, -0.58, 64.0], ["2026-10-30", -1.49, -2.39, 64.8], ["2026-11-02", -2.1, -2.88, 65.2], ["2026-11-03", -1.27, -2.53, 64.6], ["2026-11-04", -2.36, -0.99, 63.0], ["2026-11-05", -4.91, -5.3, 57.1], ["2026-11-06", -3.59, -5.0, 56.4], ["2026-11-09", -1.57, -2.77, 55.2], ["2026-11-10", -1.98, -3.15, 55.4], ["2026-11-11", -1.01, -1.88, 54.9]];
+const BUYS=[["2026-10-12", "LEU", "Centrus Energy", "Second", 135, "8 Oct level"], ["2026-10-14", "CRDO", "Credo Technology", "Second", 185, "8 Oct level"], ["2026-10-15", "ENS", "EnerSys", "Second", 167.24, "8 Oct level $168; opened below it"], ["2026-10-15", "LEU", "Centrus Energy", "Third", 113, "8 Oct level"], ["2026-10-22", "AVGO", "Broadcom", "Second", 326, "8 Oct level"], ["2026-10-23", "CRDO", "Credo Technology", "Third", 151.24, "8 Oct level $158; opened below it"], ["2026-10-23", "GEV", "GE Vernova", "Second", 825, "Raised to $832 after Q3 results (was $807); opened below it"], ["2026-10-23", "FTAI", "FTAI Aviation", "Second", 147, "8 Oct level"], ["2026-11-04", "BKR", "Baker Hughes", "Second", 52, "Raised to $52 after Q3 results (was $51)"], ["2026-11-05", "TSM", "TSMC", "Second", 379.75, "Raised to $387 after Q3 results (was $362); opened below it"], ["2026-11-05", "VRT", "Vertiv", "Second", 191, "Raised to $191 after Q3 results (was $181)"], ["2026-11-05", "ENS", "EnerSys", "Third", 144, "8 Oct level"]];
+function livePage(){
+  const last=LIVE[LIVE.length-1],m=last[1],x=last[2],g=m-x;
+  const sg=v=>(v>=0?"+":"")+v.toFixed(1);
+  const W=760,H=300,L=46,Rr=30,T=14,B=30,CH=70,CG=34;
+  const n=LIVE.length,xs=i=>L+(W-L-Rr)*i/(n-1);
+  const vals=LIVE.flatMap(r=>[r[1],r[2]]);let lo=Math.floor(Math.min(...vals)-0.5),hi=Math.ceil(Math.max(...vals)+0.5);
+  const ys=v=>T+(H-T-B)*(hi-v)/(hi-lo);
+  let ticks="";for(let v=lo;v<=hi;v++){ticks+=`<line class="${v===0?"zero":"grid"}" x1="${L}" x2="${W-Rr}" y1="${ys(v).toFixed(1)}" y2="${ys(v).toFixed(1)}"/><text x="${L-8}" y="${(ys(v)+4).toFixed(1)}" text-anchor="end">${v>0?"+":""}${v}%</text>`}
+  const lab=i=>{const d=LIVE[i][0];return d.slice(8,10)+"/"+d.slice(5,7)};
+  const xi=[0,5,10,15,20,n-1];let xl=xi.map(i=>`<text x="${xs(i).toFixed(1)}" y="${H-10}" text-anchor="middle">${lab(i)}</text>`).join("");
+  const path=k=>LIVE.map((r,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+ys(r[k]).toFixed(1)).join(" ");
+  const band=LIVE.map((r,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+ys(r[1]).toFixed(1)).join(" ")+" "+LIVE.slice().reverse().map((r,j)=>"L"+xs(n-1-j).toFixed(1)+" "+ys(r[2]).toFixed(1)).join(" ")+" Z";
+  const bd=[...new Set(BUYS.map(b=>b[0]))];
+  const dots=bd.map(d=>{const i=LIVE.findIndex(r=>r[0]===d);const k=BUYS.filter(b=>b[0]===d);return `<circle class="buy" r="5" cx="${xs(i).toFixed(1)}" cy="${ys(LIVE[i][1]).toFixed(1)}"><title>${lab(i)}: bought ${k.map(b=>b[1]).join(", ")}</title></circle>`}).join("");
+  const cy0=H+CG,cys=v=>cy0+CH*(80-v)/(80-50);
+  const cpath=LIVE.map((r,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+cys(r[3]).toFixed(1)).join(" ");
+  const carea=cpath+` L${xs(n-1).toFixed(1)} ${cy0+CH} L${L} ${cy0+CH} Z`;
+  const cticks=[50,60,70,80].map(v=>`<line class="grid" x1="${L}" x2="${W-Rr}" y1="${cys(v).toFixed(1)}" y2="${cys(v).toFixed(1)}"/><text x="${L-8}" y="${(cys(v)+4).toFixed(1)}" text-anchor="end">${v}%</text>`).join("");
+  const svg=`<svg class="livechart" viewBox="0 0 ${W} ${H+CG+CH+8}" role="img" aria-label="Model portfolio and S&P 500, cumulative return since 8 October 2026, with cash share below">
+   ${ticks}${xl}<path class="gap" d="${band}"/><path class="ls" d="${path(2)}"/><path class="lm" d="${path(1)}"/>${dots}
+   <text x="${L}" y="${H+CG-12}" style="font-weight:600;fill:var(--ink-2)">Cash share of the portfolio</text>
+   ${cticks}<path class="cash" d="${carea}"/><path class="cashl" d="${cpath}"/></svg>`;
+  const rows=BUYS.map(b=>`<tr><td class="l">${b[0].slice(8,10)}/${b[0].slice(5,7)}</td><td class="name l"><b>${b[2]}</b><span>${b[1]}</span></td><td class="l">${b[3]}</td><td>$${b[4].toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td class="l" style="white-space:normal;font-family:var(--body);font-size:13px;color:var(--ink-2)">${b[5]}</td></tr>`).join("");
+  return `<section class="page" aria-label="Live since 8 October">
+  <div class="sectorhead"><div><div class="eyebrow">Tracking</div><h2>Live since 8 October</h2><p>The portfolio exactly as designed on 8 October 2026, run forward on daily prices with its own rules. Each stock starts with its first purchase. Further purchases happen only when the price reaches a level from Step 7. When a company reports, its valuation is rerun and the levels move with it. A Step 9 Warning stops buying.</p></div><div class="big">${LIVE.length}<small>trading days</small></div></div>
+  <div class="kpis">
+   <div class="kpi"><span class="lab">Model portfolio</span><span class="val">${sg(m)}%</span><span class="cmp">shares and cash, since 8 Oct</span></div>
+   <div class="kpi"><span class="lab">S&amp;P 500</span><span class="val">${sg(x)}%</span><span class="cmp">price index, same days</span></div>
+   <div class="kpi"><span class="lab">Difference</span><span class="val ${g>=0?"pos":"neg"}">${sg(g)} pts</span><span class="cmp">portfolio minus index</span></div>
+   <div class="kpi"><span class="lab">Cash</span><span class="val">${LIVE[0][3].toFixed(0)}% → ${last[3].toFixed(0)}%</span><span class="cmp">spent only at buy levels</span></div>
+   <div class="kpi"><span class="lab">Rule-based purchases</span><span class="val">${BUYS.length}</span><span class="cmp">after the first purchases</span></div>
+  </div>
+  <div class="panel"><h2>Cumulative return</h2><p class="hint">Shaded area is the gap between the two lines. Dots mark days when a buy level was reached.</p>
+   <div class="keyrow"><span><i style="background:var(--accent)"></i>Model portfolio</span><span><i style="background:var(--ink-3)"></i>S&amp;P 500</span><span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="var(--panel)" stroke="var(--accent)" stroke-width="2"/></svg>Purchase at a level</span></div>
+   <div style="overflow-x:auto"><div style="min-width:620px">${svg}</div></div>
+   <p class="note">Five weeks is far too short to judge returns. Most of the difference so far comes from holding cash while the market fell in early November. That is the staged-buying design doing its job, not proof of stock-picking skill.</p></div>
+  <div class="panel"><h2>What the rules bought</h2><p class="hint">Fills at the level, or at the opening price when a stock opened below it, as a limit order would.</p>
+    <div class="tablewrap"><table style="min-width:640px"><thead><tr><th class="l">Date</th><th class="l">Stock</th><th class="l">Level</th><th>Price</th><th class="l">Why this price</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+  <div class="panel"><h2>What the rules stopped</h2><p class="hint">Step 9 reviews after results. A Warning pauses buying even when the price reaches a level.</p>
+    <div class="warnlist">
+     <div class="warnitem"><span class="chip Low">Warning</span><div><b>Alphabet, from 29 Oct</b><p>Sold $12.4bn of new shares, free cash flow turned negative as spending doubled, and Search growth slowed to 12%. Buying paused until the Q4 results.</p></div></div>
+     <div class="warnitem"><span class="chip Low">Warning</span><div><b>Alnylam, from 29 Oct</b><p>Main heart drug guided to the low end of its range, the largest US insurer now requires other treatment first, and management said demand growth is not yet satisfactory. No further purchases.</p></div></div>
+    </div>
+    <p class="note">Levels raised after results: TSMC, Baker Hughes, GE Vernova, Vertiv, Eli Lilly, Insmed, Neurocrine and others. Those moves follow from rerunning each valuation, never from the share price.</p></div>
+  <p class="note"><b>How this is calculated.</b> Starting value 100 on 8 October 2026 at closing prices. Tier weights as on the Overview page. Fractional shares, no fees, dividends left out, cash earns nothing. A buy happens when the day's low reaches the level in force that day. A stricter version that also skips buying in the two weeks before each company's results gives ${"−1.3"}% against ${sg(x)}% for the index. This is a replay of the rules on market prices, not a brokerage statement. Prices from Yahoo Finance.</p>
+  </section>`}
+const PAGES=[{id:"overview",name:"Overview"},...SECTORS.map(s=>({id:s.id,name:s.name,c:s.color})),{id:"live",name:"Live since 8 Oct"}];
+const tabs=document.getElementById("tabs"),main=document.getElementById("main");
+tabs.innerHTML=PAGES.map(p=>`<a href="#${p.id}" data-id="${p.id}">${p.c?`<span class="dot" style="background:${col(p.c)}"></span>`:""}${p.name}</a>`).join("");
+function render(id){
+  if(!PAGES.find(p=>p.id===id))id="overview";
+  tabs.querySelectorAll("a").forEach(a=>a.setAttribute("aria-current",a.dataset.id===id?"page":"false"));
+  if(id==="live"){main.innerHTML=livePage();hideTip();return}
+  if(id==="overview"){main.innerHTML=overview();wireDonut(main,SECTORS.map(s=>({tip:`<b>${s.name} · ${s.w}%</b>${s.stocks.length} stocks · regime return ${s.regime}% a year`})))}
+  else{const s=SECTORS.find(q=>q.id===id);main.innerHTML=sectorPage(s);wireDonut(main,s.stocks.map(x=>({tip:`<b>${x.n} · ${x.w.toFixed(1)}%</b>${x.sub}<br>${x.tier} tier · base return ${x.ret}%`})))}
+  hideTip();
+}
+tabs.addEventListener("click",e=>{const a=e.target.closest("a");if(!a)return;e.preventDefault();history.replaceState(null,"","#"+a.dataset.id);render(a.dataset.id);window.scrollTo({top:0})});
+render((location.hash||"#overview").slice(1));
+</script>
+</body>
+</html>
